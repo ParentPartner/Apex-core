@@ -1,4 +1,3 @@
--- server/main.lua
 local oxmysql = exports.oxmysql
 
 -- Function to ensure player exists in the database
@@ -27,18 +26,31 @@ end
 -- Handle player connecting to the server
 AddEventHandler('playerConnecting', function(playerName, setKickReason, deferrals)
     local playerId = source
+    local identifier = GetPlayerIdentifiers(playerId)[1]
     deferrals.defer()
     print("Connection in progress for:", playerName)
 
-    -- Ensuring deferral isn't processed too early
-    Citizen.Wait(0)
-    deferrals.update(string.format("Hello %s. Your connection is being checked.", playerName))
+    -- Check if the player is banned
+    Apex.Functions.isBanned(identifier, function(isBanned, banInfo)
+        if isBanned then
+            local reason = banInfo.reason or "No reason specified"
+            local duration = banInfo.duration
+            local timestamp = os.date("%Y-%m-%d %H:%M:%S", os.time(banInfo.timestamp) + (banInfo.duration * 60))
+            local message = string.format("You are banned for %s until %s. Reason: %s", duration == 0 and "permanently" or tostring(duration) .. " minutes", timestamp, reason)
+            deferrals.done(message)
+            return
+        end
 
-    -- Simulating some connection delay
-    Citizen.Wait(1000)
+        -- Ensuring deferral isn't processed too early
+        Citizen.Wait(0)
+        deferrals.update(string.format("Hello %s. Your connection is being checked.", playerName))
 
-    -- Assuming everything is fine for now
-    deferrals.done()
+        -- Simulating some connection delay
+        Citizen.Wait(1000)
+
+        -- Assuming everything is fine for now
+        deferrals.done()
+    end)
 end)
 
 -- Handle player spawn and retrieve their last saved position

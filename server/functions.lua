@@ -1,7 +1,68 @@
 local oxmysql = exports['oxmysql']
+local json = require('json')
+local banFilePath = './resources/Apex/Config/ban.json'
+local kickFilePath = './resources/Apex/Config/kick.json'
 
 Apex = {}
 Apex.Functions = {}
+
+-- Function to read bans from the JSON file
+local function readBanFile()
+    local file = io.open(banFilePath, "r")
+    if not file then
+        print("Failed to open ban file for reading")
+        return {}
+    end
+    local content = file:read("*all")
+    file:close()
+    local bans = json.decode(content)
+    if not bans then
+        print("Failed to decode ban file: Invalid JSON format")
+        return {}
+    end
+    return bans
+end
+
+-- Function to save bans to the JSON file
+local function saveBanFile(bans)
+    local file = io.open(banFilePath, "w")
+    if not file then
+        print("Failed to open ban file for writing")
+        return false
+    end
+    file:write(json.encode(bans, { indent = true }))
+    file:close()
+    return true
+end
+
+-- Function to read kicks from the JSON file
+local function readKickFile()
+    local file = io.open(kickFilePath, "r")
+    if not file then
+        print("Failed to open kick file for reading")
+        return {}
+    end
+    local content = file:read("*all")
+    file:close()
+    local kicks = json.decode(content)
+    if not kicks then
+        print("Failed to decode kick file: Invalid JSON format")
+        return {}
+    end
+    return kicks
+end
+
+-- Function to save kicks to the JSON file
+local function saveKickFile(kicks)
+    local file = io.open(kickFilePath, "w")
+    if not file then
+        print("Failed to open kick file for writing")
+        return false
+    end
+    file:write(json.encode(kicks, { indent = true }))
+    file:close()
+    return true
+end
 
 -- Function to update player data
 Apex.Functions.updatePlayerData = function(identifier, key, value)
@@ -82,7 +143,6 @@ Apex.Functions.addJob = function(name, label)
     end)
 end
 
-
 -- Function to notify a player
 Apex.Functions.notify = function(playerId, message, type)
     TriggerClientEvent('apx:notify', playerId, message, type)
@@ -134,66 +194,77 @@ Apex.Functions.setAdmin = function(identifier, isAdmin)
     Apex.Functions.updatePlayerData(identifier, 'isAdmin', isAdmin)
 end
 
--- Register a command to set job
-RegisterCommand('setjob', function(source, args, rawCommand)
-    local playerId = source
-    if playerId > 0 then
-        local identifier = GetPlayerIdentifiers(playerId)[1]
-        local job = args[1]
-        if job then
-            Apex.Functions.setJob(identifier, job)
-            TriggerClientEvent('chat:addMessage', playerId, { args = { 'Job', 'Your job has been set to ' .. job } })
-        else
-            TriggerClientEvent('chat:addMessage', playerId, { args = { 'Job', 'Please specify a job.' } })
+-- Function to ban a player
+Apex.Functions.banPlayer = function(identifier, adminIdentifier, reason, duration)
+    local bans = readBanFile()
+    local banTime = os.time() + (duration * 60)
+
+    table.insert(bans, {
+        identifier = identifier,
+        adminIdentifier = adminIdentifier,
+        reason = reason,
+        banTime = banTime,
+        duration = duration
+    })
+
+    saveBanFile(bans)
+
+    print("Banned player:", identifier, "by admin:", adminIdentifier, "for reason:", reason, "duration:", duration)
+    -- Kick the player from the server if they are online
+    local playerId = GetPlayerFromIdentifier(identifier)
+    if playerId then
+        DropPlayer(playerId, "You have been banned for " .. reason)
+    end
+end
+
+-- Function to check if a player is banned
+Apex.Functions.isBanned = function(identifier, callback)
+    local bans = readBanFile()
+    local currentTime = os.time()
+
+    for _, ban in ipairs(bans) do
+        if ban.identifier == identifier then
+            if ban.banTime > currentTime or ban.duration == 0 then
+                callback(true, ban)
+                return
+            else
+                -- Remove expired bans
+                table.remove(bans, _)
+                saveBanFile(bans)
+            end
         end
     end
-end, false)
+    callback(false)
+end
 
--- Register a command to get current job
-RegisterCommand('getjob', function(source, args, rawCommand)
-    local playerId = source
-    if playerId > 0 then
-        local identifier = GetPlayerIdentifiers(playerId)[1]
-        Apex.Functions.getJob(identifier, function(job)
-            TriggerClientEvent('chat:addMessage', playerId, { args = { 'Job', 'Your current job is ' .. (job or 'none') } })
-        end)
+-- Function to kick a player
+Apex.Functions.kickPlayer = function(identifier, adminIdentifier, reason)
+    local kicks = readKickFile()
+    table.insert(kicks, {
+        identifier = identifier,
+        adminIdentifier = adminIdentifier,
+        reason = reason,
+        kickTime = os.time()
+    })
+
+    saveKickFile(kicks)
+
+    print("Kicked player:", identifier, "by admin:", adminIdentifier, "for reason:", reason)
+    -- Kick the player from the server if they are online
+    local playerId = GetPlayerFromIdentifier(identifier)
+    if playerId then
+        DropPlayer(playerId, "You have been kicked for " .. reason)
     end
-end, false)
+end
 
--- Register a command to list all jobs
-RegisterCommand('listjobs', function(source, args, rawCommand)
-    local playerId = source
-    if playerId > 0 then
-        Apex.Functions.listJobs(function(jobs)
-            for _, job in ipairs(jobs) do
-                TriggerClientEvent('chat:addMessage', playerId, { args = { 'Job', job.name .. ' - ' .. job.label } })
+-- Function to get a player from identifier
+function GetPlayerFromIdentifier(identifier)
+    for _, playerId in ipairs(GetPlayers()) do
+        for _, id in ipairs(GetPlayerIdentifiers(playerId)) do
+            if id == identifier then
+                return playerId
             end
-        end)
+        end
     end
-end, false)
-
--- Register a command to give money
-RegisterCommand('givemoney', function(source, args, rawCommand)
-    local playerId = source
-    local amount = tonumber(args[1])
-    local type = args[2] or 'cash'
-
-    if playerId and amount then
-        local identifier = GetPlayerIdentifiers(playerId)[1]
-        Apex.Functions.addMoney(identifier, amount, type)
-        TriggerClientEvent('chat:addMessage', playerId, { args = { 'Money', 'You have received $' .. amount .. ' ' .. type } })
-    end
-end, false)
-
--- Register a command to check money
-RegisterCommand('checkmoney', function(source, args, rawCommand)
-    local playerId = source
-    if playerId > 0 then
-        local identifier = GetPlayerIdentifiers(playerId)[1]
-        Apex.Functions.getMoney(identifier, function(cash, bank)
-            TriggerClientEvent('chat:addMessage', playerId, { args = { 'Money', 'Cash: $' .. cash .. ', Bank: $' .. bank } })
-        end)
-    end
-end, false)
-
--- Additional utility functions can be added here
+    return nil
+end
