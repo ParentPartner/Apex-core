@@ -1,5 +1,3 @@
--- server/functions.lua
-
 local oxmysql = exports['oxmysql']
 
 Apex = {}
@@ -84,10 +82,40 @@ Apex.Functions.addJob = function(name, label)
     end)
 end
 
--- Function to log player actions
-Apex.Functions.logAction = function(identifier, action, description)
-    local logMessage = string.format("%s: %s - %s", identifier, action, description)
-    print(logMessage)
+
+-- Function to notify a player
+Apex.Functions.notify = function(playerId, message, type)
+    TriggerClientEvent('apx:notify', playerId, message, type)
+end
+
+-- Register a client event to handle notifications
+RegisterNetEvent('apx:notify')
+AddEventHandler('apx:notify', function(message, type)
+    -- Client-side code to display the notification
+    TriggerEvent('chat:addMessage', { args = { type or 'INFO', message } })
+end)
+
+-- Function to get player inventory
+Apex.Functions.getInventory = function(identifier, callback)
+    oxmysql:execute('SELECT inventory FROM users WHERE identifier = ?', {identifier}, function(result)
+        if result and result[1] and result[1].inventory then
+            callback(json.decode(result[1].inventory))
+        else
+            callback({})
+        end
+    end)
+end
+
+-- Function to update player inventory
+Apex.Functions.updateInventory = function(identifier, inventory, callback)
+    local encodedInventory = json.encode(inventory)
+    oxmysql:execute('UPDATE users SET inventory = ? WHERE identifier = ?', {encodedInventory, identifier}, function(result)
+        if result and result.affectedRows > 0 then
+            callback(true)
+        else
+            callback(false)
+        end
+    end)
 end
 
 -- Register a command to set job
@@ -153,4 +181,3 @@ RegisterCommand('checkmoney', function(source, args, rawCommand)
 end, false)
 
 -- Additional utility functions can be added here
-
