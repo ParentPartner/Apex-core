@@ -118,6 +118,22 @@ Apex.Functions.updateInventory = function(identifier, inventory, callback)
     end)
 end
 
+-- Function to check if a player is an admin
+Apex.Functions.isAdmin = function(identifier, callback)
+    oxmysql:execute('SELECT isAdmin FROM users WHERE identifier = ?', {identifier}, function(result)
+        if result and result[1] then
+            callback(result[1].isAdmin)
+        else
+            callback(false)
+        end
+    end)
+end
+
+-- Function to set a player as admin
+Apex.Functions.setAdmin = function(identifier, isAdmin)
+    Apex.Functions.updatePlayerData(identifier, 'isAdmin', isAdmin)
+end
+
 -- Register a command to set job
 RegisterCommand('setjob', function(source, args, rawCommand)
     local playerId = source

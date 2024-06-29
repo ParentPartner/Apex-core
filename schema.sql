@@ -1,12 +1,14 @@
 CREATE TABLE IF NOT EXISTS users (
-    identifier VARCHAR(50) PRIMARY KEY,
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    identifier VARCHAR(50) NOT NULL UNIQUE,
     cash INT DEFAULT 0,
     bank INT DEFAULT 0,
     posX FLOAT DEFAULT 0,
     posY FLOAT DEFAULT 0,
     posZ FLOAT DEFAULT 0,
     job VARCHAR(50) DEFAULT NULL,
-    inventory JSON DEFAULT '[]'
+    inventory JSON DEFAULT '[]',
+    isAdmin BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS jobs (

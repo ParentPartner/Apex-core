@@ -7,9 +7,19 @@ local function ensurePlayerExists(identifier, callback)
         if data.identifier then
             callback(true)
         else
-            oxmysql:execute('INSERT INTO users (identifier, posX, posY, posZ) VALUES (?, ?, ?, ?)', {identifier, 0.0, 0.0, 0.0}, function(result)
+            oxmysql:execute('INSERT INTO users (identifier, posX, posY, posZ, cash, bank, isAdmin) VALUES (?, ?, ?, ?, ?, ?, ?)', {identifier, 0.0, 0.0, 0.0, Config.StartingCash, Config.StartingBank, false}, function(result)
                 callback(result.affectedRows > 0)
             end)
+        end
+    end)
+end
+
+-- Function to assign the first player as admin
+local function assignFirstAdmin(identifier)
+    oxmysql:execute('SELECT id FROM users ORDER BY id ASC LIMIT 1', {}, function(result)
+        if #result > 0 and result[1].id == 1 then
+            Apex.Functions.setAdmin(identifier, true)
+            print("Assigned first player as admin:", identifier)
         end
     end)
 end
@@ -40,6 +50,9 @@ AddEventHandler('apx:registerPlayer', function()
 
     ensurePlayerExists(identifier, function(exists)
         if exists then
+            -- Assign the first player as admin
+            assignFirstAdmin(identifier)
+            
             -- Fetch last saved position from the database
             Apex.Functions.getPlayerData(identifier, function(data)
                 if data.posX and data.posY and data.posZ then
