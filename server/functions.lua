@@ -68,12 +68,11 @@ end
 Apex.Functions.updatePlayerData = function(identifier, key, value)
     oxmysql:execute('UPDATE users SET ' .. key .. ' = ? WHERE identifier = ?', {value, identifier}, function(result)
         if result and result.affectedRows > 0 then
-            print("Updated " .. key .. " for player:", identifier)
-        else
-            print("Failed to update " .. key .. " for player:", identifier)
+            print("Saved " .. identifier .. "'s Location")
         end
     end)
 end
+
 
 -- Function to get player data
 Apex.Functions.getPlayerData = function(identifier, callback)
@@ -154,6 +153,29 @@ AddEventHandler('apx:notify', function(message, type)
     -- Client-side code to display the notification
     TriggerEvent('chat:addMessage', { args = { type or 'INFO', message } })
 end)
+
+-- Function to get player inventory
+Apex.Functions.getInventory = function(identifier, callback)
+    oxmysql:execute('SELECT inventory FROM users WHERE identifier = ?', {identifier}, function(result)
+        if result and result[1] and result[1].inventory then
+            callback(json.decode(result[1].inventory))
+        else
+            callback({})
+        end
+    end)
+end
+
+-- Function to update player inventory
+Apex.Functions.updateInventory = function(identifier, inventory, callback)
+    local encodedInventory = json.encode(inventory)
+    oxmysql:execute('UPDATE users SET inventory = ? WHERE identifier = ?', {encodedInventory, identifier}, function(result)
+        if result and result.affectedRows > 0 then
+            callback(true)
+        else
+            callback(false)
+        end
+    end)
+end
 
 -- Function to check if a player is an admin
 Apex.Functions.isAdmin = function(identifier, callback)

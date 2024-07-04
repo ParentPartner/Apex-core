@@ -6,7 +6,8 @@ local function ensurePlayerExists(identifier, callback)
         if data.identifier then
             callback(true)
         else
-            oxmysql:execute('INSERT INTO users (identifier, posX, posY, posZ, cash, bank, isAdmin) VALUES (?, ?, ?, ?, ?, ?, ?)', {identifier, 0.0, 0.0, 0.0, Config.StartingCash, Config.StartingBank, false}, function(result)
+            oxmysql:execute('INSERT INTO users (identifier, posX, posY, posZ, cash, bank, isAdmin) VALUES (?, ?, ?, ?, ?, ?, ?)', 
+            {identifier, 0.0, 0.0, 0.0, Config.StartingCash, Config.StartingBank, false}, function(result)
                 callback(result.affectedRows > 0)
             end)
         end
@@ -18,7 +19,6 @@ local function assignFirstAdmin(identifier)
     oxmysql:execute('SELECT id FROM users ORDER BY id ASC LIMIT 1', {}, function(result)
         if #result > 0 and result[1].id == 1 then
             Apex.Functions.setAdmin(identifier, true)
-            print("Assigned first player as admin:", identifier)
         end
     end)
 end
@@ -28,7 +28,6 @@ AddEventHandler('playerConnecting', function(playerName, setKickReason, deferral
     local playerId = source
     local identifier = GetPlayerIdentifiers(playerId)[1]
     deferrals.defer()
-    print("Connection in progress for:", playerName)
 
     -- Check if the player is banned
     Apex.Functions.isBanned(identifier, function(isBanned, banInfo)
@@ -36,7 +35,8 @@ AddEventHandler('playerConnecting', function(playerName, setKickReason, deferral
             local reason = banInfo.reason or "No reason specified"
             local duration = banInfo.duration
             local timestamp = os.date("%Y-%m-%d %H:%M:%S", os.time(banInfo.timestamp) + (banInfo.duration * 60))
-            local message = string.format("You are banned for %s until %s. Reason: %s", duration == 0 and "permanently" or tostring(duration) .. " minutes", timestamp, reason)
+            local message = string.format("You are banned for %s until %s. Reason: %s", 
+                duration == 0 and "permanently" or tostring(duration) .. " minutes", timestamp, reason)
             deferrals.done(message)
             return
         end
@@ -58,7 +58,6 @@ RegisterNetEvent('apx:registerPlayer')
 AddEventHandler('apx:registerPlayer', function()
     local playerId = source
     local identifier = GetPlayerIdentifiers(playerId)[1]
-    print("Handling registration/loading for player ID:", playerId)
 
     ensurePlayerExists(identifier, function(exists)
         if exists then
@@ -70,15 +69,11 @@ AddEventHandler('apx:registerPlayer', function()
                 if data.posX and data.posY and data.posZ then
                     -- Trigger client event to teleport player to last saved position
                     TriggerClientEvent('apx:teleportPlayer', playerId, data.posX, data.posY, data.posZ)
-                    print("Teleporting player to last saved location for:", identifier, data.posX, data.posY, data.posZ)
                 else
                     -- If no data is found, use the default spawn position
                     TriggerClientEvent('apx:teleportPlayer', playerId, Config.StartingPosition.x, Config.StartingPosition.y, Config.StartingPosition.z)
-                    print("Teleporting player to default location for:", identifier)
                 end
             end)
-        else
-            print("Failed to ensure player exists:", identifier)
         end
     end)
 end)
@@ -88,8 +83,6 @@ AddEventHandler('playerDropped', function(reason)
     local playerId = source
     local identifier = GetPlayerIdentifiers(playerId)[1]
     local playerCoords = GetEntityCoords(GetPlayerPed(playerId))
-
-    print("Saving location for player", identifier, "at", playerCoords)
 
     -- Update the database with the player's last location
     Apex.Functions.updatePlayerData(identifier, 'posX', playerCoords.x)
@@ -102,8 +95,6 @@ RegisterNetEvent('apx:savePlayerLocation')
 AddEventHandler('apx:savePlayerLocation', function(x, y, z)
     local playerId = source
     local identifier = GetPlayerIdentifiers(playerId)[1]
-
-    print("Saving location for player", identifier, "at", vector3(x, y, z))
 
     -- Update the database with the player's last location
     Apex.Functions.updatePlayerData(identifier, 'posX', x)
